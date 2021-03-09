@@ -7,3 +7,4 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin) # Output directory f
 
 project( JZ_Games101 )
 add_subdirectory(Games101/Homework0)
+add_subdirectory(Games101/Homework1)

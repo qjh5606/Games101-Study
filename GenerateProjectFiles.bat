@@ -44,10 +44,18 @@ PUSHD %CMAKE_BINARY_DIR%
 
 %CMAKE% -G %CMAKE_GENERATOR% -A x64 -Wno-dev "%~dp0"
 
+SET DLL_SRC_PATH="%~dp0\DLL\"
+SET DLL_DST="%~dp0\%CMAKE_BINARY_DIR%\bin\Debug\"
+
 IF %ERRORLEVEL% NEQ 0 (
     PAUSE
 ) ELSE (
-    ::START BKRender.sln
+    for /r %DLL_SRC_PATH% %%a in (*) do (  
+        XCOPY %%a %DLL_DST% /Y
+        ECHO Copy %%a to %DLL_DST%
+    )
+    )
+    START JZ_Games101.sln
     ECHO.
 )
 
