@@ -6,6 +6,9 @@
 
 constexpr double MY_PI = 3.1415926;
 
+// 角度转弧度
+inline  float ToRadians(float fDegrees) { return fDegrees * (MY_PI / 180.0f); }
+
 Eigen::Matrix4f get_view_matrix(Eigen::Vector3f eye_pos)
 {
     Eigen::Matrix4f view = Eigen::Matrix4f::Identity();
@@ -27,6 +30,11 @@ Eigen::Matrix4f get_model_matrix(float rotation_angle)
     // Create the model matrix for rotating the triangle around the Z axis.
     // Then return it.
 
+    float rotation_radian = ToRadians(rotation_angle);
+    Eigen::AngleAxisf v(rotation_radian, Eigen::Vector3f(0, 0, 1));
+    Eigen::Matrix3f rotationMat = v.matrix();
+    model.block(0, 0, 3, 3) = rotationMat;
+
     return model;
 }
 
@@ -40,6 +48,35 @@ Eigen::Matrix4f get_projection_matrix(float eye_fov, float aspect_ratio,
     // TODO: Implement this function
     // Create the projection matrix for the given parameters.
     // Then return it.
+
+    // https://zhuanlan.zhihu.com/p/122411512
+
+	float radians = ToRadians(eye_fov);
+	float tanY = std::tan(radians / 2.0f);
+    if (std::abs(tanY) < 1e-6) 
+        tanY = 0.001f;
+	
+    float yScale = 1.0f / tanY;
+    if (std::abs(aspect_ratio) < 1e-6) 
+        aspect_ratio = 0.001f;
+
+	float xScale = yScale / aspect_ratio;
+    float f1 = (zNear + zFar) / (zNear - zFar);
+    float f2 = -(2 * zNear * zFar) / (zNear - zFar);
+
+    //  三角形是颠倒的
+    //projection <<
+    //    xScale, 0, 0, 0,
+    //    0, yScale, 0, 0,
+    //    0, 0, f1, f2,
+    //    0, 0, 1, 0;
+
+    // 三角形向上
+	projection <<
+		xScale, 0, 0, 0,
+		0, yScale, 0, 0,
+		0, 0, f1, f2,
+		0, 0, -1, 0;
 
     return projection;
 }
