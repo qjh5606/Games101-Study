@@ -1,6 +1,6 @@
 cmake_minimum_required( VERSION 3.16.1 ) # Latest version of CMake when this file was created.
 
-set( TARGET_NAME 01-ModelViewProjMatrix)
+set( TARGET_NAME 02-Rasterization)
 
 set(HEADER_FILES
 )
@@ -11,6 +11,7 @@ set(SOURCE_FILES
 	src/rasterizer.cpp 
 	src/Triangle.hpp 
 	src/Triangle.cpp
+	src/global.hpp
 )
 
 #project( ${TARGET_NAME} )

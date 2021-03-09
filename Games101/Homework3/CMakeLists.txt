@@ -1,6 +1,6 @@
 cmake_minimum_required( VERSION 3.16.1 ) # Latest version of CMake when this file was created.
 
-set( TARGET_NAME 01-ModelViewProjMatrix)
+set( TARGET_NAME 03-RasterizationAdv)
 
 set(HEADER_FILES
 )
@@ -8,9 +8,15 @@ set(HEADER_FILES
 set(SOURCE_FILES
 	src/main.cpp
 	src/rasterizer.hpp 
-	src/rasterizer.cpp 
+	src/rasterizer.cpp
+	src/global.hpp 
 	src/Triangle.hpp 
 	src/Triangle.cpp
+	src/global.hpp
+	src/Texture.hpp
+	src/Texture.cpp
+	src/Shader.hpp
+	src/OBJ_Loader.h
 )
 
 #project( ${TARGET_NAME} )
@@ -33,4 +39,8 @@ target_include_directories( ${TARGET_NAME}
 
 target_link_libraries( ${TARGET_NAME}
 	opencv_world3412d.lib
+)
+
+target_compile_features( ${TARGET_NAME} 
+	PUBLIC cxx_std_17
 )
