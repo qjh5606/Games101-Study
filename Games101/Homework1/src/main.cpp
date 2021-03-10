@@ -61,18 +61,10 @@ Eigen::Matrix4f get_projection_matrix(float eye_fov, float aspect_ratio,
         aspect_ratio = 0.001f;
 
 	float xScale = yScale / aspect_ratio;
-    float f1 = (zNear + zFar) / (zNear - zFar);
-    float f2 = -(2 * zNear * zFar) / (zNear - zFar);
+	float f1 = -(zFar + zNear) / (zFar - zNear);
+	float f2 = -(2 * zNear * zFar) / (zFar - zNear);
 
-    //  三角形是颠倒的
-    //projection <<
-    //    xScale, 0, 0, 0,
-    //    0, yScale, 0, 0,
-    //    0, 0, f1, f2,
-    //    0, 0, 1, 0;
-
-    // 三角形向上
-	projection <<
+    projection <<
 		xScale, 0, 0, 0,
 		0, yScale, 0, 0,
 		0, 0, f1, f2,
