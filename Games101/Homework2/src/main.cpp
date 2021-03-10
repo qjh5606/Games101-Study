@@ -108,7 +108,7 @@ int main(int argc, const char** argv)
 
     int key = 0;
     int frame_count = 0;
-
+    
     if (command_line)
     {
         r.clear(rst::Buffers::Color | rst::Buffers::Depth);
@@ -144,6 +144,15 @@ int main(int argc, const char** argv)
         key = cv::waitKey(10);
 
         std::cout << "frame count: " << frame_count++ << '\n';
+
+		if (key == 'a') {
+            r.set_MSAA(true);
+            std::cout << "using MSAA" << std::endl;
+		}
+		else if (key == 'd') {
+            r.set_MSAA(false);
+		}
+
     }
 
     return 0;

@@ -128,6 +128,27 @@ void rst::rasterizer::draw(pos_buf_id pos_buffer, ind_buf_id ind_buffer, col_buf
 
         rasterize_triangle(t);
     }
+
+    // resolve msaa
+    // http://games-cn.org/forums/topic/zuoye2guanyu-ssaa/
+    if (bUseMSAA)
+    {
+        for (int y = 0; y < height; ++y)
+        {
+            for (int x = 0; x < width; ++x)
+            {
+                Vector3f res = Vector3f{ 0, 0, 0 };
+                for (int i = 0; i < 4; i++)
+                {
+                    int msaa_index = get_msaa_index(x, y, i);
+                    res += frame_buf_msaa[msaa_index];
+                }
+                res /= 4;
+                frame_buf[get_index(x, y)] = res;
+            }
+        }
+    }
+
 }
 
 //Screen space rasterization
@@ -158,33 +179,74 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t) {
     {
         for (int x = MinX; x <= MaxX; ++x)
         {
-            //bool bInTriangle = insideTriangle(x, y, t.v);
-            //if (!bInTriangle) continue;
-
-            auto BarycentricTexCoord = computeBarycentric2D(x, y, t.v);
-            float alpha = std::get<0>(BarycentricTexCoord);
-            float beta = std::get<1>(BarycentricTexCoord);
-            float gamma = std::get<2>(BarycentricTexCoord);
-
-            if (alpha > 0 && beta > 0 && gamma > 0)
+            if (bUseMSAA)
             {
-				// 深度插值 投射校正
-                // https://zhuanlan.zhihu.com/p/144331875
-                // https://zhuanlan.zhihu.com/p/105639446
-                float w_reciprocal = 1.0 / (alpha / v[0].w() + beta / v[1].w() + gamma / v[2].w());
-                float z_interpolated = alpha * v[0].z() / v[0].w() + beta * v[1].z() / v[1].w() + gamma * v[2].z() / v[2].w();
-                z_interpolated *= w_reciprocal;
+                int count = 0;
+                std::vector<Vector2f> offset{
+                    Vector2f(0.25,0.25),
+                    Vector2f(0.25,0.75),
+                    Vector2f(0.75,0.25),
+                    Vector2f(0.75,0.75)
+                };
 
-                // 深度测试
-                int index = y * width + x;
-                float& real_z = depth_buf[get_index(x,y)];
-                if (z_interpolated < real_z)
+                for (int i = 0; i < 4; ++i)
                 {
-                    real_z = z_interpolated;
-				    Eigen::Vector3f point = Eigen::Vector3f(x, y, 1.0f);
-				    set_pixel(point, t.getColor());
+                    float _x = x + offset[i].x();
+                    float _y = y + offset[i].y();
+
+					auto BarycentricTexCoord = computeBarycentric2D(_x, _y, t.v);
+					float alpha = std::get<0>(BarycentricTexCoord);
+					float beta = std::get<1>(BarycentricTexCoord);
+					float gamma = std::get<2>(BarycentricTexCoord);
+
+                    if (alpha > 0 && beta > 0 && gamma > 0)
+                    {
+                        int msaa_index = get_msaa_index(x, y, i);
+
+                        float& real_z = depth_buf_msaa[msaa_index];
+
+						float w_reciprocal = 1.0 / (alpha / v[0].w() + beta / v[1].w() + gamma / v[2].w());
+						float z_interpolated = alpha * v[0].z() / v[0].w() + beta * v[1].z() / v[1].w() + gamma * v[2].z() / v[2].w();
+						z_interpolated *= w_reciprocal;
+
+                        // 深度测试
+						if (z_interpolated < real_z)
+						{
+                            real_z = z_interpolated;
+                            // 写到msaa的帧缓冲中，而不是写到framebuffer中
+                            frame_buf_msaa[msaa_index] = t.getColor();
+						}
+                    }
                 }
             }
+            else
+            {
+				//bool bInTriangle = insideTriangle(x, y, t.v);
+                //if (!bInTriangle) continue;
+                auto BarycentricTexCoord = computeBarycentric2D(x, y, t.v);
+                float alpha = std::get<0>(BarycentricTexCoord);
+                float beta = std::get<1>(BarycentricTexCoord);
+                float gamma = std::get<2>(BarycentricTexCoord);
+
+                if (alpha > 0 && beta > 0 && gamma > 0)
+                {
+			        // 深度插值 投射校正
+                    // https://zhuanlan.zhihu.com/p/144331875
+                    // https://zhuanlan.zhihu.com/p/105639446
+                    float w_reciprocal = 1.0 / (alpha / v[0].w() + beta / v[1].w() + gamma / v[2].w());
+                    float z_interpolated = alpha * v[0].z() / v[0].w() + beta * v[1].z() / v[1].w() + gamma * v[2].z() / v[2].w();
+                    z_interpolated *= w_reciprocal;
+
+                    // 深度测试
+                    float& real_z = depth_buf[get_index(x,y)];
+                    if (z_interpolated < real_z)
+                    {
+                        real_z = z_interpolated;
+				        Eigen::Vector3f point = Eigen::Vector3f(x, y, 1.0f);
+				        set_pixel(point, t.getColor());
+                    }
+                }
+			}
         }
     }
 }
@@ -209,10 +271,12 @@ void rst::rasterizer::clear(rst::Buffers buff)
     if ((buff & rst::Buffers::Color) == rst::Buffers::Color)
     {
         std::fill(frame_buf.begin(), frame_buf.end(), Eigen::Vector3f{0, 0, 0});
+        std::fill(frame_buf_msaa.begin(), frame_buf_msaa.end(), Eigen::Vector3f{ 0, 0, 0 });
     }
     if ((buff & rst::Buffers::Depth) == rst::Buffers::Depth)
     {
         std::fill(depth_buf.begin(), depth_buf.end(), std::numeric_limits<float>::infinity());
+        std::fill(depth_buf_msaa.begin(), depth_buf_msaa.end(), std::numeric_limits<float>::infinity());
     }
 }
 
@@ -220,11 +284,19 @@ rst::rasterizer::rasterizer(int w, int h) : width(w), height(h)
 {
     frame_buf.resize(w * h);
     depth_buf.resize(w * h);
+    frame_buf_msaa.resize(w * h * MSAA_FACTOR);
+    depth_buf_msaa.resize(w * h * MSAA_FACTOR);
 }
 
 int rst::rasterizer::get_index(int x, int y)
 {
     return (height-1-y)*width + x;
+}
+
+
+int rst::rasterizer::get_msaa_index(int x, int y, int z)
+{
+    return ((height - 1 - y) * width + x) * MSAA_FACTOR + z;
 }
 
 void rst::rasterizer::set_pixel(const Eigen::Vector3f& point, const Eigen::Vector3f& color)
