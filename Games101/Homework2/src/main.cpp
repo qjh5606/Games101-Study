@@ -36,8 +36,6 @@ Eigen::Matrix4f get_projection_matrix(float eye_fov, float aspect_ratio, float z
     // TODO: Copy-paste your implementation from the previous assignment.
     Eigen::Matrix4f projection;
 
-	// https://zhuanlan.zhihu.com/p/122411512
-
 	float radians = ToRadians(eye_fov);
 	float tanY = std::tan(radians / 2.0f);
 	if (std::abs(tanY) < 1e-6)
@@ -48,13 +46,14 @@ Eigen::Matrix4f get_projection_matrix(float eye_fov, float aspect_ratio, float z
 		aspect_ratio = 0.001f;
 
 	float xScale = yScale / aspect_ratio;
-	float f1 = (zNear + zFar) / (zNear - zFar);
-	float f2 = -(2 * zNear * zFar) / (zNear - zFar);
+
+    float f1 = -(zFar + zNear) / (zFar - zNear);
+    float f2 = -(2 * zNear * zFar) / (zFar - zNear);
 
 	projection <<
 		xScale, 0, 0, 0,
 		0, yScale, 0, 0,
-		0, 0, f1, f2,
+        0, 0, f1, f2,
 		0, 0, -1, 0;
 
 	return projection;

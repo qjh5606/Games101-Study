@@ -98,14 +98,16 @@ void rst::rasterizer::draw(pos_buf_id pos_buffer, ind_buf_id ind_buffer, col_buf
         //Homogeneous division
         //透视除法
         for (auto& vec : v) {
+            // vec.w() 就是view空间的深度z，
             vec /= vec.w();
+            float z = vec.z();
         }
         //Viewport transformation
+        //屏幕映射
         for (auto & vert : v)
         {
             vert.x() = 0.5 * width * (vert.x() + 1.0);
             vert.y() = 0.5 * height * (vert.y() + 1.0);
-            // 在这里，深度值越大，越远
             vert.z() = vert.z() * f1 + f2;
         }
 
@@ -166,28 +168,21 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t) {
 
             if (alpha > 0 && beta > 0 && gamma > 0)
             {
-				// 深度插值
+				// 深度插值 投射校正
                 // https://zhuanlan.zhihu.com/p/144331875
                 // https://zhuanlan.zhihu.com/p/105639446
-                // 插值得到w的导数
                 float w_reciprocal = 1.0 / (alpha / v[0].w() + beta / v[1].w() + gamma / v[2].w());
                 float z_interpolated = alpha * v[0].z() / v[0].w() + beta * v[1].z() / v[1].w() + gamma * v[2].z() / v[2].w();
                 z_interpolated *= w_reciprocal;
+
                 // 深度测试
                 int index = y * width + x;
-                float& real_z = depth_buf[index];
-
+                float& real_z = depth_buf[get_index(x,y)];
                 if (z_interpolated < real_z)
                 {
                     real_z = z_interpolated;
-                    // 颜色插值
-                    Vector3f color0 = t.color[0];
-                    Vector3f color1 = t.color[1];
-                    Vector3f color2 = t.color[2];
-                    Eigen::Vector3f line_color = { 0, 0, 0 };
-				    line_color = 255.0 * (alpha * color0 + beta * color1 + gamma * color2);
 				    Eigen::Vector3f point = Eigen::Vector3f(x, y, 1.0f);
-				    set_pixel(point, line_color);
+				    set_pixel(point, t.getColor());
                 }
             }
         }
