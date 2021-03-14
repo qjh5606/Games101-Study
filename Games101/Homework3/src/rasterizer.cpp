@@ -1,4 +1,4 @@
-//
+﻿//
 // Created by goksu on 4/6/19.
 //
 
@@ -261,9 +261,12 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t, const std::array<Eig
 {
     // TODO: From your HW3, get the triangle rasterization code.
     // TODO: Inside your rasterization loop:
-    //    * v[i].w() is the vertex view space depth value z.
+    //    * v[i].w() is the vertex view space depth value z.            
+    //      v[i].w() 表示的是View空间下的的深度值Z
     //    * Z is interpolated view space depth for the current pixel
+    //      Z 是为当前像素插值得到的View空间的深度值
     //    * zp is depth between zNear and zFar, used for z-buffer
+    //      zp 是zNear和zFar之间的深度，用于z缓冲区
 
     // float Z = 1.0 / (alpha / v[0].w() + beta / v[1].w() + gamma / v[2].w());
     // float zp = alpha * v[0].z() / v[0].w() + beta * v[1].z() / v[1].w() + gamma * v[2].z() / v[2].w();
@@ -280,7 +283,49 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t, const std::array<Eig
     // Use: Instead of passing the triangle's color directly to the frame buffer, pass the color to the shaders first to get the final color;
     // Use: auto pixel_color = fragment_shader(payload);
 
- 
+    auto v = t.toVector4();
+	int MinX = std::min(std::min(v[0].x(), v[1].x()), v[2].x());
+	MinX = std::max(0, MinX);
+	int MinY = std::min(std::min(v[0].y(), v[1].y()), v[2].y());
+	MinY = std::max(0, MinY);
+	int MaxX = std::max(std::max(v[0].x(), v[1].x()), v[2].x()) + 0.5;
+	MaxX = std::min(width - 1, MaxX);
+	int MaxY = std::max(std::max(v[0].y(), v[1].y()), v[2].y()) + 0.5;
+	MaxY = std::min(height - 1, MaxY);
+
+	for (int y = MinY; y <= MaxY; ++y)
+	{
+		for (int x = MinX; x <= MaxX; ++x)
+		{
+			auto BarycentricTexCoord = computeBarycentric2D(x, y, t.v);
+			float alpha = std::get<0>(BarycentricTexCoord);
+			float beta = std::get<1>(BarycentricTexCoord);
+			float gamma = std::get<2>(BarycentricTexCoord);
+
+			if (alpha > 0 && beta > 0 && gamma > 0)
+			{
+                // 插值深度
+				float w_reciprocal = 1.0 / (alpha / v[0].w() + beta / v[1].w() + gamma / v[2].w());
+				float z_interpolated = alpha * v[0].z() / v[0].w() + beta * v[1].z() / v[1].w() + gamma * v[2].z() / v[2].w();
+				z_interpolated *= w_reciprocal;
+
+				if (z_interpolated < depth_buf[get_index(x, y)])
+				{
+                    // 插值其他属性
+					auto interpolated_color = interpolate(alpha, beta, gamma, t.color[0], t.color[1], t.color[2], 1);
+					auto interpolated_normal = interpolate(alpha, beta, gamma, t.normal[0], t.normal[1], t.normal[2], 1);
+                    auto interpolated_texcoords = interpolate(alpha, beta, gamma, t.tex_coords[0], t.tex_coords[1], t.tex_coords[2], 1);
+                    auto interpolated_shadingcoords = interpolate(alpha, beta, gamma, view_pos[0], view_pos[1], view_pos[2], 1);
+
+                    fragment_shader_payload payload(interpolated_color, interpolated_normal.normalized(), interpolated_texcoords, texture ? &*texture : nullptr);
+                    payload.view_pos = interpolated_shadingcoords;
+
+                    depth_buf[get_index(x, y)] = z_interpolated;
+                    frame_buf[get_index(x, y)] = fragment_shader(payload);
+				}
+			}
+		}
+	}
 }
 
 void rst::rasterizer::set_model(const Eigen::Matrix4f& m)
