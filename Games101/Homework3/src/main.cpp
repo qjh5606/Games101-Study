@@ -207,7 +207,6 @@ Eigen::Vector3f phong_fragment_shader(const fragment_shader_payload& payload)
 
 Eigen::Vector3f displacement_fragment_shader(const fragment_shader_payload& payload)
 {
-    
     Eigen::Vector3f ka = Eigen::Vector3f(0.005, 0.005, 0.005);
     Eigen::Vector3f kd = payload.color;
     Eigen::Vector3f ks = Eigen::Vector3f(0.7937, 0.7937, 0.7937);
@@ -241,11 +240,18 @@ Eigen::Vector3f displacement_fragment_shader(const fragment_shader_payload& payl
 	
     // 构造TBN矩阵
 	Eigen::Vector3f  n = normal;
+    // http://games-cn.org/forums/topic/zhengquejisuanzuoye3detbn/
+    // pbrt中提到了如何快速的根据一个单位向量构建局部坐标系: 法向量n去掉一个坐标，交换另外两个坐标，并任意一个坐标取负并单位化得到t轴，叉乘得到b轴。
+    // http://games-cn.org/forums/topic/zuoye3-bump-mappingzhongtbndet-gongshizenmetuidaode/
+    // 计算切线，其实更准确一点是在找一条切线,然后跟n和它俩的叉乘构成一个Orthonormal basis
+    // 通过旋转，可以将这个投影旋转到平面P，即和y轴垂直，则找个一个模值为std::sqrt(x * x + z * z)的向量。
+    // 又根据N垂直于t，根据点乘为0，可以快速求解。
 	float x = n.x();
 	float y = n.y();
 	float z = n.z();
-	// 这里在个切线是什么鬼？不是来自模型
-	Eigen::Vector3f t(x * y / std::sqrt(x * x + z * z), std::sqrt(x * x + z * z), z * y / std::sqrt(x * x + z * z));
+	Eigen::Vector3f t;
+	t = Eigen::Vector3f(-z, 0, x) / std::sqrt(x * x + z * z);
+
 	Eigen::Vector3f b = n.cross(t);
 
 	Eigen::Matrix3f TBN;
@@ -334,7 +340,7 @@ Eigen::Vector3f bump_fragment_shader(const fragment_shader_payload& payload)
     float x = n.x();
     float y = n.y();
     float z = n.z();
-    // 这里在个切线是什么鬼？不是来自模型
+    // 这里在个切线是什么鬼？
     Eigen::Vector3f t(x * y / std::sqrt(x * x + z * z), std::sqrt(x * x + z * z), z * y / std::sqrt(x * x + z * z));
     Eigen::Vector3f b = n.cross(t);
 
@@ -412,7 +418,7 @@ int main(int argc, const char** argv)
 			r.set_texture(Texture(obj_path + texture_path));
 		}
 		else if (argc == 3 && std::string(argv[2]) == "normal")
-		{
+		{ 
 			std::cout << "Rasterizing using the normal shader\n";
 			active_shader = normal_fragment_shader;
 		}
